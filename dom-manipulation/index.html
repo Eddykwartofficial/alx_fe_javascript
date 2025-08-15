@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dynamic Quote Generator</title>
+    <title>Dynamic Quote Generator - Enhanced</title>
     <style>
         * {
             margin: 0;
@@ -21,7 +20,7 @@
         }
 
         .container {
-            max-width: 800px;
+            max-width: 900px;
             margin: 0 auto;
             background: rgba(255, 255, 255, 0.95);
             border-radius: 20px;
@@ -101,23 +100,25 @@
 
         .controls {
             display: flex;
-            gap: 15px;
+            gap: 10px;
             margin-bottom: 30px;
             flex-wrap: wrap;
             justify-content: center;
+            align-items: center;
         }
 
         .btn {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
-            padding: 12px 25px;
+            padding: 10px 20px;
             border-radius: 25px;
-            font-size: 1em;
+            font-size: 0.9em;
             font-weight: bold;
             cursor: pointer;
             transition: all 0.3s ease;
             box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            white-space: nowrap;
         }
 
         .btn:hover {
@@ -129,12 +130,27 @@
             transform: translateY(0);
         }
 
+        .btn.export {
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+            box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);
+        }
+
+        .btn.import {
+            background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+            box-shadow: 0 4px 15px rgba(243, 156, 18, 0.3);
+        }
+
+        .btn.clear {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
+        }
+
         .category-selector {
             background: white;
             border: 2px solid #667eea;
-            padding: 10px 15px;
+            padding: 8px 12px;
             border-radius: 20px;
-            font-size: 1em;
+            font-size: 0.9em;
             outline: none;
             transition: all 0.3s ease;
         }
@@ -142,6 +158,10 @@
         .category-selector:focus {
             border-color: #764ba2;
             box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
+        }
+
+        .file-input {
+            display: none;
         }
 
         .add-quote-section {
@@ -215,37 +235,77 @@
             font-size: 1.2em;
         }
 
-        @media (max-width: 600px) {
+        .storage-info {
+            background: rgba(52, 152, 219, 0.1);
+            border: 1px solid #3498db;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+            font-size: 0.9em;
+            color: #2c3e50;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #2ecc71;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification.error {
+            background: #e74c3c;
+        }
+
+        @media (max-width: 768px) {
             .container {
                 padding: 20px;
             }
             
             .controls {
-                flex-direction: column;
-                align-items: center;
+                gap: 8px;
             }
             
-            .btn, .category-selector {
-                width: 100%;
-                max-width: 300px;
+            .btn {
+                padding: 8px 16px;
+                font-size: 0.8em;
+            }
+            
+            .stats {
+                flex-direction: column;
+                gap: 15px;
             }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Dynamic Quote Generator</h1>
+        <h1>Enhanced Quote Generator</h1>
         
         <div class="controls">
             <select id="categorySelector" class="category-selector">
                 <option value="all">All Categories</option>
             </select>
-            <button id="newQuote" class="btn">Show New Quote</button>
-            <button id="toggleAddForm" class="btn">Add New Quote</button>
+            <button id="newQuote" class="btn">New Quote</button>
+            <button id="toggleAddForm" class="btn">Add Quote</button>
+            <button id="exportBtn" class="btn export">Export JSON</button>
+            <label for="importFile" class="btn import">Import JSON</label>
+            <input type="file" id="importFile" class="file-input" accept=".json">
+            <button id="clearStorage" class="btn clear">Clear All</button>
         </div>
 
         <div id="quoteDisplay" class="quote-display">
-            <div class="placeholder">Click "Show New Quote" to get started!</div>
+            <div class="placeholder">Click "New Quote" to get started!</div>
         </div>
 
         <div id="addQuoteSection" class="add-quote-section" style="display: none;">
@@ -285,25 +345,55 @@
                 <div id="customQuotes" class="stat-number">0</div>
                 <div class="stat-label">Custom Added</div>
             </div>
+            <div class="stat-item">
+                <div id="sessionQuotes" class="stat-number">0</div>
+                <div class="stat-label">Session Views</div>
+            </div>
+        </div>
+
+        <div class="storage-info">
+            <strong>Storage Status:</strong> Data is stored in memory for this demo. In a real environment with localStorage support, your quotes would persist between browser sessions. Session storage tracks quotes viewed this session.
         </div>
     </div>
 
+    <div id="notification" class="notification"></div>
+
     <script>
-        // Quote data structure with pre-loaded quotes
-        let quotes = [
-            { text: "The only way to do great work is to love what you do", author: "Steve Jobs", category: "motivation" },
-            { text: "Innovation distinguishes between a leader and a follower", author: "Steve Jobs", category: "innovation" },
-            { text: "Life is what happens to you while you're busy making other plans", author: "John Lennon", category: "life" },
-            { text: "The future belongs to those who believe in the beauty of their dreams", author: "Eleanor Roosevelt", category: "dreams" },
-            { text: "It is during our darkest moments that we must focus to see the light", author: "Aristotle", category: "wisdom" },
-            { text: "The way to get started is to quit talking and begin doing", author: "Walt Disney", category: "motivation" },
-            { text: "Success is not final, failure is not fatal: it is the courage to continue that counts", author: "Winston Churchill", category: "success" },
-            { text: "The greatest glory in living lies not in never falling, but in rising every time we fall", author: "Nelson Mandela", category: "wisdom" },
-            { text: "Your time is limited, don't waste it living someone else's life", author: "Steve Jobs", category: "life" },
-            { text: "If you want to live a happy life, tie it to a goal, not to people or things", author: "Albert Einstein", category: "happiness" }
+        // Storage simulation for demo (replace with localStorage in real environment)
+        const storage = {
+            local: {},
+            session: {},
+            setItem: function(storage, key, value) {
+                storage[key] = value;
+                // In real environment: localStorage.setItem(key, value);
+            },
+            getItem: function(storage, key) {
+                return storage[key] || null;
+                // In real environment: return localStorage.getItem(key);
+            },
+            removeItem: function(storage, key) {
+                delete storage[key];
+                // In real environment: localStorage.removeItem(key);
+            }
+        };
+
+        // Default quotes
+        const defaultQuotes = [
+            { text: "The only way to do great work is to love what you do", author: "Steve Jobs", category: "motivation", isCustom: false },
+            { text: "Innovation distinguishes between a leader and a follower", author: "Steve Jobs", category: "innovation", isCustom: false },
+            { text: "Life is what happens to you while you're busy making other plans", author: "John Lennon", category: "life", isCustom: false },
+            { text: "The future belongs to those who believe in the beauty of their dreams", author: "Eleanor Roosevelt", category: "dreams", isCustom: false },
+            { text: "It is during our darkest moments that we must focus to see the light", author: "Aristotle", category: "wisdom", isCustom: false },
+            { text: "The way to get started is to quit talking and begin doing", author: "Walt Disney", category: "motivation", isCustom: false },
+            { text: "Success is not final, failure is not fatal: it is the courage to continue that counts", author: "Winston Churchill", category: "success", isCustom: false },
+            { text: "The greatest glory in living lies not in never falling, but in rising every time we fall", author: "Nelson Mandela", category: "wisdom", isCustom: false },
+            { text: "Your time is limited, don't waste it living someone else's life", author: "Steve Jobs", category: "life", isCustom: false },
+            { text: "If you want to live a happy life, tie it to a goal, not to people or things", author: "Albert Einstein", category: "happiness", isCustom: false }
         ];
 
+        let quotes = [];
         let customQuoteCount = 0;
+        let sessionQuoteViews = 0;
         let currentQuote = null;
 
         // DOM elements
@@ -314,15 +404,82 @@
         const addQuoteSection = document.getElementById('addQuoteSection');
         const addQuoteBtn = document.getElementById('addQuoteBtn');
         const cancelBtn = document.getElementById('cancelBtn');
+        const exportBtn = document.getElementById('exportBtn');
+        const importFile = document.getElementById('importFile');
+        const clearStorageBtn = document.getElementById('clearStorage');
         const totalQuotesEl = document.getElementById('totalQuotes');
         const totalCategoriesEl = document.getElementById('totalCategories');
         const customQuotesEl = document.getElementById('customQuotes');
+        const sessionQuotesEl = document.getElementById('sessionQuotes');
+        const notification = document.getElementById('notification');
 
         // Initialize the application
         function init() {
+            loadQuotesFromStorage();
+            loadSessionData();
             updateCategorySelector();
             updateStats();
             setupEventListeners();
+            
+            // Load last viewed quote from session storage
+            const lastQuote = getFromSessionStorage('lastViewedQuote');
+            if (lastQuote) {
+                currentQuote = JSON.parse(lastQuote);
+                displayQuote(currentQuote);
+            }
+        }
+
+        // Storage helper functions
+        function saveToLocalStorage(key, value) {
+            storage.setItem(storage.local, key, JSON.stringify(value));
+            // Real environment: localStorage.setItem(key, JSON.stringify(value));
+        }
+
+        function getFromLocalStorage(key) {
+            const data = storage.getItem(storage.local, key);
+            return data ? JSON.parse(data) : null;
+            // Real environment: const data = localStorage.getItem(key); return data ? JSON.parse(data) : null;
+        }
+
+        function saveToSessionStorage(key, value) {
+            storage.setItem(storage.session, key, JSON.stringify(value));
+            // Real environment: sessionStorage.setItem(key, JSON.stringify(value));
+        }
+
+        function getFromSessionStorage(key) {
+            const data = storage.getItem(storage.session, key);
+            return data ? JSON.parse(data) : null;
+            // Real environment: const data = sessionStorage.getItem(key); return data ? JSON.parse(data) : null;
+        }
+
+        // Load quotes from storage
+        function loadQuotesFromStorage() {
+            const storedQuotes = getFromLocalStorage('quotes');
+            const storedCustomCount = getFromLocalStorage('customQuoteCount');
+            
+            if (storedQuotes && Array.isArray(storedQuotes)) {
+                quotes = storedQuotes;
+                customQuoteCount = storedCustomCount || quotes.filter(q => q.isCustom).length;
+            } else {
+                quotes = [...defaultQuotes];
+                saveQuotes();
+            }
+        }
+
+        // Load session data
+        function loadSessionData() {
+            sessionQuoteViews = getFromSessionStorage('sessionQuoteViews') || 0;
+        }
+
+        // Save quotes to storage
+        function saveQuotes() {
+            saveToLocalStorage('quotes', quotes);
+            saveToLocalStorage('customQuoteCount', customQuoteCount);
+        }
+
+        // Save session data
+        function saveSessionData() {
+            saveToSessionStorage('sessionQuoteViews', sessionQuoteViews);
         }
 
         // Setup event listeners
@@ -332,8 +489,11 @@
             toggleFormBtn.addEventListener('click', toggleAddQuoteForm);
             addQuoteBtn.addEventListener('click', addQuote);
             cancelBtn.addEventListener('click', hideAddQuoteForm);
+            exportBtn.addEventListener('click', exportQuotesToJson);
+            importFile.addEventListener('change', importFromJsonFile);
+            clearStorageBtn.addEventListener('click', clearAllStorage);
 
-            // Add keyboard support
+            // Keyboard support
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' && !isAddFormVisible()) {
                     showRandomQuote();
@@ -343,7 +503,7 @@
             });
         }
 
-        // Show random quote based on selected category
+        // Show random quote
         function showRandomQuote() {
             const selectedCategory = categorySelector.value;
             let availableQuotes = quotes;
@@ -357,7 +517,6 @@
                 return;
             }
 
-            // Ensure we don't show the same quote twice in a row
             let randomQuote;
             do {
                 const randomIndex = Math.floor(Math.random() * availableQuotes.length);
@@ -365,10 +524,15 @@
             } while (availableQuotes.length > 1 && randomQuote === currentQuote);
 
             currentQuote = randomQuote;
+            sessionQuoteViews++;
+            
             displayQuote(randomQuote);
+            saveToSessionStorage('lastViewedQuote', JSON.stringify(randomQuote));
+            saveSessionData();
+            updateStats();
         }
 
-        // Display quote in the DOM
+        // Display quote
         function displayQuote(quote) {
             quoteDisplay.innerHTML = `
                 <div class="quote-category">${quote.category.toUpperCase()}</div>
@@ -377,14 +541,14 @@
             `;
         }
 
-        // Display message when no quotes available
+        // Display no quotes message
         function displayNoQuotesMessage() {
             quoteDisplay.innerHTML = `
                 <div class="placeholder">No quotes available for this category. Try adding some!</div>
             `;
         }
 
-        // Update category selector dropdown
+        // Update category selector
         function updateCategorySelector() {
             const categories = [...new Set(quotes.map(quote => quote.category))].sort();
             const currentSelection = categorySelector.value;
@@ -398,13 +562,12 @@
                 categorySelector.appendChild(option);
             });
 
-            // Restore previous selection if it still exists
             if (categories.includes(currentSelection) || currentSelection === 'all') {
                 categorySelector.value = currentSelection;
             }
         }
 
-        // Toggle add quote form visibility
+        // Form management functions
         function toggleAddQuoteForm() {
             if (isAddFormVisible()) {
                 hideAddQuoteForm();
@@ -413,84 +576,182 @@
             }
         }
 
-        // Show add quote form
         function showAddQuoteForm() {
             addQuoteSection.style.display = 'block';
             addQuoteSection.classList.add('active');
             toggleFormBtn.textContent = 'Hide Form';
             
-            // Clear form fields
             document.getElementById('newQuoteText').value = '';
             document.getElementById('newQuoteAuthor').value = '';
             document.getElementById('newQuoteCategory').value = '';
             
-            // Focus on first input
             document.getElementById('newQuoteText').focus();
         }
 
-        // Hide add quote form
         function hideAddQuoteForm() {
             addQuoteSection.style.display = 'none';
             addQuoteSection.classList.remove('active');
-            toggleFormBtn.textContent = 'Add New Quote';
+            toggleFormBtn.textContent = 'Add Quote';
         }
 
-        // Check if add form is visible
         function isAddFormVisible() {
             return addQuoteSection.style.display !== 'none';
         }
 
-        // Add new quote to the collection
+        // Add new quote
         function addQuote() {
             const quoteText = document.getElementById('newQuoteText').value.trim();
             const quoteAuthor = document.getElementById('newQuoteAuthor').value.trim();
             const quoteCategory = document.getElementById('newQuoteCategory').value.trim().toLowerCase();
 
-            // Validate input
             if (!quoteText || !quoteAuthor || !quoteCategory) {
-                alert('Please fill in all fields!');
+                showNotification('Please fill in all fields!', 'error');
                 return;
             }
 
-            // Create new quote object
             const newQuote = {
                 text: quoteText,
                 author: quoteAuthor,
-                category: quoteCategory
+                category: quoteCategory,
+                isCustom: true
             };
 
-            // Add to quotes array
             quotes.push(newQuote);
             customQuoteCount++;
 
-            // Update UI
+            saveQuotes();
             updateCategorySelector();
             updateStats();
             hideAddQuoteForm();
-
-            // Show success message
-            showSuccessMessage();
-
-            // Automatically display the new quote
+            
+            showNotification('Quote added successfully!');
+            
             currentQuote = newQuote;
             displayQuote(newQuote);
             
-            // Update category selector to show the new category if it was created
             if (!Array.from(categorySelector.options).some(option => option.value === quoteCategory)) {
                 categorySelector.value = quoteCategory;
             }
         }
 
-        // Show success message
-        function showSuccessMessage() {
-            const originalText = toggleFormBtn.textContent;
-            toggleFormBtn.textContent = '✓ Quote Added!';
-            toggleFormBtn.style.background = 'linear-gradient(135deg, #2ecc71 0%, #27ae60 100%)';
+        // Export quotes to JSON
+        function exportQuotesToJson() {
+            const dataToExport = {
+                quotes: quotes,
+                exportDate: new Date().toISOString(),
+                totalQuotes: quotes.length,
+                customQuotes: customQuoteCount
+            };
+
+            const jsonString = JSON.stringify(dataToExport, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
             
+            const downloadLink = document.createElement('a');
+            downloadLink.href = url;
+            downloadLink.download = `quotes-export-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+            
+            URL.revokeObjectURL(url);
+            showNotification('Quotes exported successfully!');
+        }
+
+        // Import quotes from JSON file
+        function importFromJsonFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const fileReader = new FileReader();
+            fileReader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    let importedQuotes = [];
+
+                    // Handle different import formats
+                    if (importedData.quotes && Array.isArray(importedData.quotes)) {
+                        importedQuotes = importedData.quotes;
+                    } else if (Array.isArray(importedData)) {
+                        importedQuotes = importedData;
+                    } else {
+                        throw new Error('Invalid file format');
+                    }
+
+                    // Validate quote structure
+                    const validQuotes = importedQuotes.filter(quote => 
+                        quote.text && quote.author && quote.category
+                    );
+
+                    if (validQuotes.length === 0) {
+                        throw new Error('No valid quotes found in file');
+                    }
+
+                    // Mark imported quotes as custom
+                    validQuotes.forEach(quote => {
+                        if (quote.isCustom === undefined) {
+                            quote.isCustom = true;
+                        }
+                    });
+
+                    // Add to existing quotes
+                    const newCustomQuotes = validQuotes.filter(quote => quote.isCustom).length;
+                    quotes.push(...validQuotes);
+                    customQuoteCount += newCustomQuotes;
+
+                    saveQuotes();
+                    updateCategorySelector();
+                    updateStats();
+
+                    showNotification(`Successfully imported ${validQuotes.length} quotes!`);
+
+                } catch (error) {
+                    showNotification('Error importing file: ' + error.message, 'error');
+                }
+
+                // Clear the file input
+                event.target.value = '';
+            };
+
+            fileReader.onerror = function() {
+                showNotification('Error reading file!', 'error');
+            };
+
+            fileReader.readAsText(file);
+        }
+
+        // Clear all storage
+        function clearAllStorage() {
+            if (confirm('Are you sure you want to clear all quotes and data? This cannot be undone.')) {
+                // Reset to default quotes
+                quotes = [...defaultQuotes];
+                customQuoteCount = 0;
+                sessionQuoteViews = 0;
+                currentQuote = null;
+
+                // Clear storage
+                storage.local = {};
+                storage.session = {};
+                // Real environment: localStorage.clear(); sessionStorage.clear();
+
+                saveQuotes();
+                updateCategorySelector();
+                updateStats();
+
+                quoteDisplay.innerHTML = '<div class="placeholder">All data cleared! Click "New Quote" to start fresh.</div>';
+                showNotification('All data cleared successfully!');
+            }
+        }
+
+        // Show notification
+        function showNotification(message, type = 'success') {
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.classList.add('show');
+
             setTimeout(() => {
-                toggleFormBtn.textContent = originalText;
-                toggleFormBtn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-            }, 2000);
+                notification.classList.remove('show');
+            }, 3000);
         }
 
         // Update statistics
@@ -500,9 +761,10 @@
             totalQuotesEl.textContent = quotes.length;
             totalCategoriesEl.textContent = categories.length;
             customQuotesEl.textContent = customQuoteCount;
+            sessionQuotesEl.textContent = sessionQuoteViews;
         }
 
-        // Initialize the application when the page loads
+        // Initialize the application
         init();
     </script>
 </body>
